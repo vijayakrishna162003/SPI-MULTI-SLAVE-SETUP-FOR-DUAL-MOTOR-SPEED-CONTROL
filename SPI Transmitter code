@@ -1,0 +1,125 @@
+SPI TRANSMITTER CODE  
+ area SPITransmit, code, readonly 
+S0SPCR EQU 0xE0020000 
+S0SPSR EQU 0xE0020004 
+ 
+ 
+S0SPDR EQU 0xE0020008 
+S0SPCCR EQU 0xE002000C 
+S0SPINT EQU 0xE002001C 
+PINSEL0 EQU 0xE002C000 
+IO0DIR EQU 0XE0028008 
+IO0SET EQU 0XE0028004 
+IO0CLR EQU 0XE002800C 
+IO0PIN EQU 0XE0028000 
+PINSEL1 EQU 0XE002C004 
+AD0CR EQU 0XE0034000 
+AD0DR3 EQU 0XE003401C 
+AD0GDR EQU 0XE0034004 
+AD0INTEN EQU 0XE003400C 
+AD0STAT EQU 0XE0034030 
+VICIntEnable EQU 0XFFFFF010 
+VICIntSelect EQU 0XFFFFF00C 
+VICVectCntl0 EQU 0XFFFFF200 
+VICVectAddr0 EQU 0XFFFFF100 
+VICVectAddr EQU 0XFFFFF030 
+VICVectCntl1 EQU 0XFFFFF204 
+VICVectAddr1 EQU 0XFFFFF104 
+EXTINT EQU 0XE01FC140 
+ LDR R0, = PINSEL0  ; Select P0.4, P0.5, P0.6, P0.7 as SCK0, MISO0, MOSI0 and GPIO and 
+P0.15 as EINT2 
+ LDR R1, = 0X80001500 
+ STR R1,[R0] 
+ LDR R1, =PINSEL1 ; Address Of PINSEL1 
+ LDR R2, =0X10000000 ; Activating AD0.3 at P0.30 
+ STR R2, [R1]  
+ LDR R2, =VICINTENABLE 
+ MOV R1, #0X50000 
+ STR R1,[R2] 
+ 
+ 
+ LDR R2, =VICIntSelect 
+ MOV R1, #0X0 
+ STR R1,[R2] 
+ LDR R2, =VICVectCntl0 
+ MOV R1, #0X32 
+ STR R1,[R2] 
+ LDR R2, =VICVectAddr0 
+ LDR R1, =IRQ_Handler  
+ STR R1,[R2] 
+ LDR R2, =VICVectCntl1 
+ MOV R1, #0X30 
+ STR R1,[R2] 
+ LDR R2, =VICVectAddr1 
+ LDR R1, =IRQ_Handler1  
+ STR R1,[R2] 
+ LDR R1, =AD0INTEN  
+ LDR R2, =0X08 
+ STR R2, [R1] 
+ LDR R1, =AD0CR ; Address Of AD0 Control Register 
+ LDR R2, =0X00251508 ; 2 is to make a/d converter operational from power down mode, 5 is for     
+setting bust mode and making the adc to go to 8 bit mode f is for setting clk/div and 8 is for selecting  
+channel 3. 
+ str R2, [R1]  
+ LDR R0, = S0SPCR ; SPI Master mode, 8-bit data, SPI0 mode 
+ LDR R1, = 0X0030 
+ STR R1,[R0] 
+ LDR R0, = S0SPCCR ; Even number, minimum value 8, pre scalar for SPI Clock  
+ LDR R1, = 0X0010 
+ STR R1,[R0] 
+ LDR R0, = IO0DIR    
+ LDR R1, = 0X180 
+ STR R1,[R0] 
+
+ 
+ MOV R5,#0X0100 
+ MOV R4,#0X080 
+L1 B L1 
+IRQ_Handler1 
+ SUB LR,LR,#4 
+ MOV R6, LR 
+ MOV R5,#0X080 
+ MOV R4,#0X0100 
+ LDR R2, =VICVectAddr 
+ LDR R1, =0x0 
+ STR R1, [R2] 
+ LDR R2, =EXTINT 
+ LDR r1, =0x04 
+ STR R1, [R2] 
+ MSR     CPSR_c, #Mode_USR 
+ MOV LR, R6 
+ BX LR 
+IRQ_Handler 
+ SUB LR,LR,#4 
+ MOV R6, LR 
+ LDR R3, =AD0DR3 ; Address 0f AD0 Global Data Register 
+ LDR R2, [R3] 
+ LDR R1, =0X0000FF00 
+ AND R7,R1,R2 
+ LSR R8,R7,#8 
+ LDR R11, =0X40000000 
+ STR R8,[R11] 
+ LDR R0, = IO0PIN    
+ STR R5,[R0] 
+ LDR R0, = S0SPDR    
+ STR R8,[R0] 
+ 
+ 
+
+ 
+L LDR R0, = S0SPSR 
+ LDR R1,[R0] 
+ LDR R2,=0x80 
+ AND R3,R2,R1 
+ CMP R3,R2 
+ BNE L 
+ LDR R0, = IO0SET   
+ MOV R1, R4 
+ STR R1,[R0] 
+ LDR R2, =VICVectAddr 
+ LDR R1, =0x0 
+ STR R1,[R2] 
+ MSR     CPSR_c, #Mode_USR 
+ MOV LR, R6 
+ BX LR 
+ END 
